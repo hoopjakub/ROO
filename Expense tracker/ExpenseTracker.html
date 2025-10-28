@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <link rel="stylesheet" href="ExpenseTracker.css">
+</head>
+<body>
+
+    <div id="app">
+        <h1>Expense Tracker</h1>
+
+        <!-- Expense Input Section -->
+        <div class="input-section">
+            <h2>Add Expense</h2>
+            <div class="input-group">
+                <input v-model="newExpense" @keyup.enter="addExpense" placeholder="Expense name..." type="text"/>
+                <input v-model="newExpensePrice" @keyup.enter="addExpense" placeholder="Price (€)..." type="text"/>
+                <input v-model="newExpenseDate" @keyup.enter="addExpense" type="date"/>
+                <button @click="addExpense" class="add-btn">Add Expense</button>
+            </div>
+        </div>
+
+        <!-- Income Input Section -->
+        <div class="input-section">
+            <h2>Add Income</h2>
+            <div class="input-group">
+                <input v-model="newIncome" @keyup.enter="addIncome" placeholder="Income name..." type="text"/>
+                <input v-model="newIncomePrice" @keyup.enter="addIncome" placeholder="Amount (€)..." type="text"/>
+                <input v-model="newIncomeDate" @keyup.enter="addIncome" type="date"/>
+                <button @click="addIncome" class="add-btn">Add Income</button>
+            </div>
+        </div>
+
+        <!-- Expenses and Incomes List -->
+        <div class="content-grid">
+            <!-- Expenses List -->
+            <div class="card">
+                <h2>Expenses</h2>
+                <div v-if="Expenses.length === 0" class="empty-state">
+                    No expenses yet. Add your first expense above!
+                </div>
+                <div v-else>
+                    <div v-for="expense in Expenses" :key="expense.Expenseid" class="list-item">
+                        <div class="item-info">
+                            <div class="item-name">{{ expense.name }}</div>
+                            <div class="item-details">{{ expense.price }}€ • {{ expense.date }}</div>
+                        </div>
+                        <div class="item-actions">
+                            <button @click="editExpense(expense.Expenseid)" class="edit-btn">Edit</button>
+                            <button @click="deleteExpense(expense.Expenseid)" class="delete-btn">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Incomes List -->
+            <div class="card">
+                <h2>Incomes</h2>
+                <div v-if="Incomes.length === 0" class="empty-state">
+                    No incomes yet. Add your first income above!
+                </div>
+                <div v-else>
+                    <div v-for="income in Incomes" :key="income.Incomeid" class="list-item">
+                        <div class="item-info">
+                            <div class="item-name">{{ income.name }}</div>
+                            <div class="item-details">{{ income.price }}€ • {{ income.date }}</div>
+                        </div>
+                        <div class="item-actions">
+                            <button @click="editIncome(income.Incomeid)" class="edit-btn">✏️ Edit</button>
+                            <button @click="deleteIncome(income.Incomeid)" class="delete-btn">🗑️ Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="content-grid">
+            <!-- Expense Summary -->
+            <div class="summary-card">
+                <h2>Expense Summary</h2>
+                <h3 style="color: #666; font-size: 1.1rem; margin-top: 20px;">Monthly</h3>
+                <ul class="summary-list">
+                    <li v-for="(total, month) in aggregateExpensesByMonth()" :key="month">
+                        <span class="summary-month">{{ month }}</span>
+                        <span class="summary-amount negative">- {{ total.toFixed(2) }}€</span>
+                    </li>
+                </ul>
+                <h3 style="color: #666; font-size: 1.1rem; margin-top: 20px;">Yearly</h3>
+                <ul class="summary-list">
+                    <li v-for="(total, year) in aggregateExpensesByYear()" :key="year">
+                        <span class="summary-month">{{ year }}</span>
+                        <span class="summary-amount negative">- {{ total.toFixed(2) }}€</span>
+                    </li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <span class="total-badge negative-bg">Total: - {{ aggregateExpenses().toFixed(2) }}€</span>
+                </div>
+            </div>
+
+            <!-- Income Summary -->
+            <div class="summary-card">
+                <h2>Income Summary</h2>
+                <h3 style="color: #666; font-size: 1.1rem; margin-top: 20px;">Monthly</h3>
+                <ul class="summary-list">
+                    <li v-for="(total, month) in aggregateIncomesByMonth()" :key="month">
+                        <span class="summary-month">{{ month }}</span>
+                        <span class="summary-amount positive">{{ total.toFixed(2) }}€</span>
+                    </li>
+                </ul>
+                <h3 style="color: #666; font-size: 1.1rem; margin-top: 20px;">Yearly</h3>
+                <ul class="summary-list">
+                    <li v-for="(total, year) in aggregateIncomesByYear()" :key="year">
+                        <span class="summary-month">{{ year }}</span>
+                        <span class="summary-amount positive">{{ total.toFixed(2) }}€</span>
+                    </li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <span class="total-badge positive-bg">Total: {{ aggregateIncomes().toFixed(2) }}€</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card">
+          <!-- Cash Flow Summary -->
+            <h2>Cash Flow Analysis</h2>
+            <div class="content-grid" style="margin-bottom: 0;">
+                <div>
+                    <h3 style="color: #666; font-size: 1.1rem; margin-bottom: 15px;">Monthly Cash Flow</h3>
+                    <ul class="summary-list">
+                        <li v-for="(flow, month) in MonthlyCashFlow()" :key="month">
+                            <span class="summary-month">{{ month }}</span>
+                            <span class="summary-amount" :class="flow >= 0 ? 'positive' : 'negative'">
+                                {{ flow.toFixed(2) }}€
+                                <span style="font-size: 0.85rem; font-weight: normal;">{{ flow >= 0 ? '(Surplus)' : '(Deficit)' }}</span>
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="color: #666; font-size: 1.1rem; margin-bottom: 15px;">Yearly Cash Flow</h3>
+                    <ul class="summary-list">
+                        <li v-for="(flow, year) in YearlyCashFlow()" :key="year">
+                            <span class="summary-month">{{ year }}</span>
+                            <span class="summary-amount" :class="flow >= 0 ? 'positive' : 'negative'">
+                                {{ flow.toFixed(2) }}€
+                                <span style="font-size: 0.85rem; font-weight: normal;">{{ flow >= 0 ? '(Surplus)' : '(Deficit)' }}</span>
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 30px;">
+                <h3 style="color: #666; font-size: 1.2rem; margin-bottom: 10px;">Total Cash Flow</h3>
+                <span class="total-badge" :class="aggregateCashFlow() >= 0 ? 'positive-bg' : 'negative-bg'">
+                    {{ aggregateCashFlow().toFixed(2) }}€ {{ aggregateCashFlow() >= 0 ? '(Surplus)' : '(Deficit)' }}
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+      import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+    
+      createApp({
+        data() {
+          return {
+            newExpense: '',
+            newExpensePrice: '',
+            newExpenseDate: '',
+            Expenses: [],
+            newIncome: '',
+            newIncomePrice: '',
+            newIncomeDate: '',
+            Incomes: []
+          }
+        },
+        mounted() {
+          this.loadData();
+        },
+        watch: {
+          Expenses: {
+            handler() {
+              this.saveData();
+            },
+            deep: true
+          },
+          Incomes: {
+            handler() {
+              this.saveData();
+            },
+            deep: true
+          }
+        },
+        methods: {
+          // Expense Methods
+          //method for adding expenses
+          addExpense() {
+            if (this.newExpense.trim() !== '' && this.newExpensePrice.trim() !== '' && this.newExpenseDate.trim() !== '') {
+              this.Expenses.push({
+                Expenseid: Math.random().toString(36),
+                name: this.newExpense,
+                price: parseFloat(this.newExpensePrice),
+                date: this.newExpenseDate
+              });
+              this.newExpense = '';
+              this.newExpensePrice = '';
+              this.newExpenseDate = '';
+            }
+          },
+          //method for editing expenses
+          editExpense(Expenseid) {
+            const expense = this.Expenses.find (expense => expense.Expenseid === Expenseid);
+            if (expense){
+                const newExpense = prompt ("Enter new name", expense.name);
+                const newExpensePrice = prompt ("Enter new price", expense.price);
+                const newExpenseDate = prompt ("Enter new date", expense.date);
+                if (newExpense !== null && newExpensePrice !== null && newExpenseDate !== null) {
+                    expense.name = newExpense;
+                    expense.price = parseFloat (newExpensePrice);
+                    expense.date = newExpenseDate;
+                }
+            }
+          },
+          //method for deleting expenses
+          deleteExpense(Expenseid) {
+            if (confirm('Are you sure you want to delete this expense?')) {
+              this.Expenses = this.Expenses.filter(expense => expense.Expenseid !== Expenseid);
+            }
+          },
+          //method for aggregating expenses by month
+          aggregateExpensesByMonth() {
+            const monthlyTotals = {};
+            this.Expenses.forEach(expense => {
+              const month = new Date(expense.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+              if (!monthlyTotals[month]) {
+                monthlyTotals[month] = 0;
+              }
+              monthlyTotals[month] += expense.price;
+            });
+            return monthlyTotals;
+          },
+          //method for aggregating expenses by year
+          aggregateExpensesByYear() {
+                const yearlyTotals = {};
+                this.Expenses.forEach(expense => {
+                const year = new Date(expense.date).getFullYear();
+                if (!yearlyTotals[year]) {
+                    yearlyTotals[year] = 0;
+                }
+                yearlyTotals[year] += expense.price;
+                });
+                return yearlyTotals;
+            },
+          //method for aggregating total expenses  
+          aggregateExpenses() {
+            return this.Expenses.reduce((total, expense) => total + expense.price, 0);
+          },
+          // Income Methods
+          //method for adding incomes
+          addIncome() {
+             if (this.newIncome.trim() !== '' && this.newIncomePrice.trim() !== '' && this.newIncomeDate.trim() !== '') {
+              this.Incomes.push({
+                Incomeid: Math.random().toString(36),
+                name: this.newIncome,
+                price: parseFloat(this.newIncomePrice),
+                date: this.newIncomeDate
+              });
+              this.newIncome = '';
+              this.newIncomePrice = '';
+              this.newIncomeDate = '';
+            }
+          },
+          //method for editing incomes
+          editIncome(Incomeid) {
+            const income = this.Incomes.find (income => income.Incomeid === Incomeid);
+            if (income){
+                const newIncome = prompt ("Enter new name", income.name);
+                const newIncomePrice = prompt ("Enter new price", income.price);
+                const newIncomeDate = prompt ("Enter new date", income.date);
+                if (newIncome !== null && newIncomePrice !== null && newIncomeDate !== null) {
+                    income.name = newIncome;
+                    income.price = parseFloat (newIncomePrice);
+                    income.date = newIncomeDate;
+                }
+            }
+          },
+          //method for deleting incomes
+          deleteIncome(Incomeid) {
+            if (confirm('Are you sure you want to delete this income?')) {
+              this.Incomes = this.Incomes.filter(income => income.Incomeid !== Incomeid);
+            }
+          },
+          //method for aggregating incomes by month
+          aggregateIncomesByMonth() {
+            const monthlyTotals = {};
+            this.Incomes.forEach(income => {
+              const month = new Date(income.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+              if (!monthlyTotals[month]) {
+                monthlyTotals[month] = 0;
+              }
+              monthlyTotals[month] += income.price;
+            });
+            return monthlyTotals;
+          },
+          //method for aggregating incomes by year
+          aggregateIncomesByYear() {
+                const yearlyTotals = {};
+                this.Incomes.forEach(income => {
+                    const year = new Date(income.date).getFullYear();
+                    if (!yearlyTotals[year]) {
+                        yearlyTotals[year] = 0;
+                    }
+                    yearlyTotals[year] += income.price;
+                });
+                return yearlyTotals;
+            },
+          //method for aggregating total incomes
+          aggregateIncomes() {
+            return this.Incomes.reduce((total, income) => total + income.price, 0);
+          },
+          // Cash Flow Methods
+          //method for calculating monthly cash flow
+          MonthlyCashFlow() {
+            const monthlyExpenses = this.aggregateExpensesByMonth();
+            const monthlyIncomes = this.aggregateIncomesByMonth();
+            const monthlyCashFlow = {};
+
+            const allMonths = new Set([
+              ...Object.keys(monthlyExpenses),
+              ...Object.keys(monthlyIncomes)
+            ]);
+
+            allMonths.forEach(month => {
+              const income = monthlyIncomes[month] || 0;
+              const expense = monthlyExpenses[month] || 0;
+              monthlyCashFlow[month] = income - expense;
+            });
+
+            return monthlyCashFlow;
+          },
+          //method for calculating yearly cash flow
+          YearlyCashFlow() {
+            const yearlyExpenses = this.aggregateExpensesByYear();
+            const yearlyIncomes = this.aggregateIncomesByYear();
+            const yearlyCashFlow = {};
+
+            const allYears = new Set([
+              ...Object.keys(yearlyExpenses),
+              ...Object.keys(yearlyIncomes)
+            ]);
+
+            allYears.forEach(year => {
+              const income = yearlyIncomes[year] || 0;
+              const expense = yearlyExpenses[year] || 0;
+              yearlyCashFlow[year] = income - expense;
+            });
+
+            return yearlyCashFlow;
+          },
+          //method for calculating total cash flow
+          aggregateCashFlow() {
+            return this.aggregateIncomes() - this.aggregateExpenses();
+          },
+          // localStorage Methods
+          //method for saving data to localStorage
+          saveData() {
+            localStorage.setItem('expenses', JSON.stringify(this.Expenses));
+            localStorage.setItem('incomes', JSON.stringify(this.Incomes));
+          },
+          //method for loading data from localStorage
+          loadData() {
+            const expenses = localStorage.getItem('expenses');
+            const incomes = localStorage.getItem('incomes');
+            if (expenses) {
+              this.Expenses = JSON.parse(expenses);
+            }
+            if (incomes) {
+              this.Incomes = JSON.parse(incomes);
+            }
+          }
+        }
+      }).mount('#app')
+    </script>
+</body>
+</html>
